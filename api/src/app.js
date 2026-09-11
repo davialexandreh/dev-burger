@@ -12,7 +12,13 @@ class App {
   constructor() {
     this.app = express();
 
-    this.app.use(cors());
+    const origins = process.env.CORS_ORIGIN;
+
+    this.app.use(
+      cors({
+        origin: origins ? origins.split(',').map((o) => o.trim()) : '*',
+      }),
+    );
 
     this.middlewares();
     this.routes();

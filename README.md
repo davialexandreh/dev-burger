@@ -73,7 +73,13 @@ PG_PASSWORD="postgres"
 PG_DATABASE="devburger"
 
 STRIPE_SECRET_KEY=""
+
+# domínios liberados no CORS, separados por vírgula (vazio = qualquer origem)
+CORS_ORIGIN=
 ```
+
+> `APP_URL` não é só informativo: é o domínio usado para montar a URL das
+> imagens devolvidas pela API.
 
 Crie as tabelas e suba:
 
@@ -93,6 +99,13 @@ npm run dev
 ```
 
 Abre em `http://localhost:5173`.
+
+Em desenvolvimento não é preciso configurar nada — a interface assume
+`http://localhost:3001`. Para apontar para outra API, crie um `.env.local`:
+
+```ini
+VITE_API_URL=https://sua-api.exemplo.com
+```
 
 ## Primeiro acesso
 
@@ -163,6 +176,48 @@ VITE_STRIPE_PUBLISHABLE_KEY=pk_test_...
 Sem elas o restante da aplicação funciona normalmente — apenas o botão
 "Finalizar Pedido" não conclui. Com as chaves de teste, use o cartão
 `4242 4242 4242 4242`, qualquer data futura e qualquer CVC.
+
+## Deploy
+
+A aplicação tem duas partes com necessidades diferentes:
+
+| peça | tipo | onde hospedar |
+|---|---|---|
+| `interface/` | site estático | Netlify, Vercel, Cloudflare Pages |
+| `api/` | servidor Node | Render, Railway, Fly.io |
+| Postgres | banco | Neon, Supabase |
+| MongoDB | banco | MongoDB Atlas |
+
+**A interface não funciona sozinha** — todas as telas dependem da API, então
+hospedar só o front num serviço estático resulta numa aplicação vazia.
+
+Variáveis a definir em produção:
+
+```ini
+# na API
+APP_URL=https://sua-api.exemplo.com      # usado nas URLs das imagens
+CORS_ORIGIN=https://seu-front.exemplo.com
+MONGO_URL=...
+PG_HOST=...  PG_PORT=...
+STRIPE_SECRET_KEY=sk_...
+
+# na interface (build time)
+VITE_API_URL=https://sua-api.exemplo.com
+VITE_STRIPE_PUBLISHABLE_KEY=pk_...
+```
+
+Rode as migrations contra o banco de produção antes do primeiro acesso:
+
+```bash
+npx sequelize-cli db:migrate
+```
+
+### Limitação conhecida
+
+As imagens são gravadas em disco (`api/uploads/`) via multer. Serviços como
+Render e Railway têm **filesystem efêmero**: a cada deploy ou restart, tudo que
+foi enviado é perdido. Para produção de verdade, o upload precisa ir para um
+storage externo (Cloudinary, S3) ou um volume persistente.
 
 ## Observações
 
