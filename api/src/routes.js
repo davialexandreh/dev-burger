@@ -12,6 +12,7 @@ import DeliveryTaxController from './app/controllers/DeliveryTaxController.js';
 
 import authMiddleware from './app/middlewares/auth.js';
 import asyncHandler from './app/middlewares/asyncHandler.js';
+import uploadImage from './app/middlewares/uploadImage.js';
 
 const upload = multer(multerConfig);
 
@@ -23,13 +24,17 @@ routes.post('/sessions', asyncHandler(SessionController.store));
 
 routes.use(authMiddleware);
 
-routes.post('/products', upload.single('file'), asyncHandler(ProductController.store));
+routes.post('/products', upload.single('file'),
+  uploadImage, asyncHandler(ProductController.store));
 routes.get('/products', asyncHandler(ProductController.index));
-routes.put('/products/:id', upload.single('file'), asyncHandler(ProductController.update));
+routes.put('/products/:id', upload.single('file'),
+  uploadImage, asyncHandler(ProductController.update));
 
-routes.post('/categories', upload.single('file'), asyncHandler(CategoryController.store));
+routes.post('/categories', upload.single('file'),
+  uploadImage, asyncHandler(CategoryController.store));
 routes.get('/categories', asyncHandler(CategoryController.index));
-routes.put('/categories/:id', upload.single('file'), asyncHandler(CategoryController.update));
+routes.put('/categories/:id', upload.single('file'),
+  uploadImage, asyncHandler(CategoryController.update));
 
 routes.post('/orders', asyncHandler(OrderController.store));
 routes.put('/orders/:id', asyncHandler(OrderController.update));

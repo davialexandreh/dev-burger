@@ -1,0 +1,11 @@
+[build]
+  base = "interface"
+  command = "npm run build"
+  publish = "dist"
+
+# React Router: toda rota precisa cair no index.html,
+# senao um F5 em /cardapio retorna 404
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

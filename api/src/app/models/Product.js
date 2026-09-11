@@ -11,7 +11,10 @@ class Product extends Model {
         url: {
           type: Sequelize.VIRTUAL,
           get() {
-            return `${process.env.APP_URL}/product-file/${this.path}`;
+            // com Cloudinary o path ja e a URL final; em disco, monta com APP_URL
+            return this.path.startsWith('http')
+              ? this.path
+              : `${process.env.APP_URL}/product-file/${this.path}`;
           },
         },
       },

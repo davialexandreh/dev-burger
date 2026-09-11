@@ -183,7 +183,7 @@ A aplicação tem duas partes com necessidades diferentes:
 
 | peça | tipo | onde hospedar |
 |---|---|---|
-| `interface/` | site estático | Netlify, Vercel, Cloudflare Pages |
+| `interface/` | site estático | Netlify (há um `netlify.toml` pronto na raiz) |
 | `api/` | servidor Node | Render, Railway, Fly.io |
 | Postgres | banco | Neon, Supabase |
 | MongoDB | banco | MongoDB Atlas |
@@ -200,6 +200,7 @@ CORS_ORIGIN=https://seu-front.exemplo.com
 MONGO_URL=...
 PG_HOST=...  PG_PORT=...
 STRIPE_SECRET_KEY=sk_...
+CLOUDINARY_URL=cloudinary://...          # imagens (ver abaixo)
 
 # na interface (build time)
 VITE_API_URL=https://sua-api.exemplo.com
@@ -212,12 +213,22 @@ Rode as migrations contra o banco de produção antes do primeiro acesso:
 npx sequelize-cli db:migrate
 ```
 
-### Limitação conhecida
+### Imagens em produção
 
-As imagens são gravadas em disco (`api/uploads/`) via multer. Serviços como
-Render e Railway têm **filesystem efêmero**: a cada deploy ou restart, tudo que
-foi enviado é perdido. Para produção de verdade, o upload precisa ir para um
-storage externo (Cloudinary, S3) ou um volume persistente.
+Serviços como Render e Railway têm filesystem efêmero: a cada deploy, tudo que
+foi enviado para o disco é perdido. Por isso o upload suporta **Cloudinary**.
+
+Defina `CLOUDINARY_URL` no ambiente e as imagens passam a ser enviadas para lá,
+com a URL definitiva gravada no banco:
+
+```ini
+CLOUDINARY_URL=cloudinary://<api_key>:<api_secret>@<cloud_name>
+```
+
+O valor está pronto no painel do Cloudinary, em *Settings → API Keys*.
+
+**Sem essa variável nada muda**: o upload continua gravando em `api/uploads/`,
+que é o comportamento usado em desenvolvimento.
 
 ## Observações
 
