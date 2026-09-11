@@ -8,6 +8,16 @@ export default async function uploadImage(request, response, next) {
     return next();
   }
 
+  // Falha no Cloudinary e problema de configuracao, nao bug do servidor: vale
+  // devolver a causa em vez de um 500 generico.
+  const falhou = (error) => {
+    console.error('Falha ao enviar a imagem para o Cloudinary:', error);
+
+    return response.status(502).json({
+      error: `Falha ao enviar a imagem para o Cloudinary: ${error.message}`,
+    });
+  };
+
   try {
     const { v2: cloudinary } = await import('cloudinary');
 
@@ -15,7 +25,7 @@ export default async function uploadImage(request, response, next) {
       { folder: 'devburger' },
       (error, resultado) => {
         if (error) {
-          return next(error);
+          return falhou(error);
         }
 
         request.file.filename = resultado.secure_url;
@@ -24,8 +34,10 @@ export default async function uploadImage(request, response, next) {
       },
     );
 
+    stream.on('error', falhou);
+
     stream.end(request.file.buffer);
   } catch (err) {
-    return next(err);
+    return falhou(err);
   }
 }
