@@ -5,11 +5,22 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-export const usaCloudinary = Boolean(process.env.CLOUDINARY_URL);
+// So consideramos o Cloudinary configurado se a URL tiver o formato correto.
+// Um valor malformado (ex: colado junto com "CLOUDINARY_URL=") fazia o SDK
+// lancar no import e derrubava a API inteira, inclusive rotas sem imagem.
+const cloudinaryUrl = process.env.CLOUDINARY_URL;
 
-// Em producao o disco e efemero (Render, Railway): o arquivo vai para a
-// memoria e de la sobe para o Cloudinary. Em desenvolvimento, sem
-// CLOUDINARY_URL, continua gravando em uploads/.
+export const usaCloudinary = Boolean(
+  cloudinaryUrl && cloudinaryUrl.startsWith('cloudinary://'),
+);
+
+if (cloudinaryUrl && !usaCloudinary) {
+  console.error(
+    'CLOUDINARY_URL ignorada: o valor precisa comecar com "cloudinary://". ' +
+      'As imagens serao gravadas em disco.',
+  );
+}
+
 export default {
   storage: usaCloudinary
     ? multer.memoryStorage()
