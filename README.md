@@ -179,53 +179,110 @@ Sem elas o restante da aplicação funciona normalmente — apenas o botão
 
 ## Deploy
 
-A aplicação tem duas partes com necessidades diferentes:
+A aplicação tem quatro peças com necessidades diferentes:
 
-| peça | tipo | onde hospedar |
+| peça | tipo | serviço |
 |---|---|---|
 | `interface/` | site estático | Netlify (há um `netlify.toml` pronto na raiz) |
 | `api/` | servidor Node | Render, Railway, Fly.io |
-| Postgres | banco | Neon, Supabase |
-| MongoDB | banco | MongoDB Atlas |
+| Postgres | banco gerenciado | Neon, Supabase |
+| MongoDB | banco gerenciado | MongoDB Atlas |
+| imagens | armazenamento | Cloudinary |
 
 **A interface não funciona sozinha** — todas as telas dependem da API, então
 hospedar só o front num serviço estático resulta numa aplicação vazia.
 
-Variáveis a definir em produção:
+### 1. Bancos
+
+Crie o Postgres (Neon) e o cluster MongoDB (Atlas). No Atlas, libere o acesso em
+*Network Access*: serviços como o Render não têm IP fixo, então é preciso
+permitir `0.0.0.0/0` e proteger o banco pela senha.
+
+### 2. API
+
+No Render, um **Web Service** apontando para este repositório:
+
+| campo | valor |
+|---|---|
+| Root Directory | `api` |
+| Build Command | `npm install && npx sequelize-cli db:migrate` |
+| Start Command | `npm start` |
+
+O build roda as migrations a cada deploy, o que cria as tabelas no primeiro e
+não faz nada nos seguintes.
+
+Variáveis de ambiente:
 
 ```ini
-# na API
-APP_URL=https://sua-api.exemplo.com      # usado nas URLs das imagens
-CORS_ORIGIN=https://seu-front.exemplo.com
-MONGO_URL=...
-PG_HOST=...  PG_PORT=...
-STRIPE_SECRET_KEY=sk_...
-CLOUDINARY_URL=cloudinary://...          # imagens (ver abaixo)
+APP_URL=https://sua-api.exemplo.com      # monta a URL das imagens; sem barra no fim
+CORS_ORIGIN=https://seu-front.exemplo.com # sem barra no fim
 
-# na interface (build time)
+JWT_SECRET=uma-chave-secreta-longa
+JWT_EXPIRES_IN=5d
+
+MONGO_URL=mongodb+srv://usuario:senha@cluster.mongodb.net/devburger
+
+PG_HOST=...
+PG_PORT=5432
+PG_USERNAME=...
+PG_PASSWORD=...
+PG_DATABASE=...
+PG_SSL=true                               # obrigatório em Postgres gerenciado
+
+STRIPE_SECRET_KEY=sk_...
+CLOUDINARY_URL=cloudinary://<api_key>:<api_secret>@<cloud_name>
+```
+
+Não defina `PORT`: o Render injeta essa variável e a API a usa automaticamente.
+`APP_PORT` vale só no ambiente local.
+
+### 3. Interface
+
+No Netlify, importe o repositório. O `netlify.toml` da raiz já define o
+diretório base, o comando de build e o redirect de SPA — basta preencher as
+variáveis, que são lidas **no momento do build**:
+
+```ini
 VITE_API_URL=https://sua-api.exemplo.com
 VITE_STRIPE_PUBLISHABLE_KEY=pk_...
 ```
 
-Rode as migrations contra o banco de produção antes do primeiro acesso:
+Alterar qualquer uma delas exige um novo deploy para ter efeito.
 
-```bash
-npx sequelize-cli db:migrate
+### 4. Primeiro acesso
+
+O banco sobe vazio. Crie a conta pela tela de cadastro, promova-a a admin
+direto no Postgres de produção e cadastre as categorias e produtos pelo painel:
+
+```sql
+UPDATE users SET admin = true WHERE email = 'seu@email.com';
 ```
+
+Saia e entre novamente — o `admin` fica gravado no token.
+
+### Armadilhas conhecidas
+
+Todas já mordem em silêncio, com mensagens que não apontam para a causa:
+
+- **`CORS_ORIGIN` com barra no fim.** O header `Origin` do navegador nunca
+  traz barra final, então `https://site.app/` não casa com `https://site.app`.
+  A API normaliza isso, mas outros serviços na frente dela podem não fazê-lo.
+- **`CLOUDINARY_URL` copiada do painel.** O botão de copiar às vezes traz junto
+  o prefixo `CLOUDINARY_URL=`, e os `<>` do formato são só marcadores — se
+  ficarem no valor, o upload falha embora a API suba normalmente.
+- **Migrations contra banco com SSL.** `sequelize-cli --url` ignora
+  `dialectOptions`, então a conexão é recusada. Rode com as variáveis
+  `PG_*` no ambiente, como faz o Build Command acima.
+- **Filesystem efêmero.** Sem `CLOUDINARY_URL`, o upload grava em
+  `api/uploads/` e tudo se perde no deploy seguinte.
 
 ### Imagens em produção
 
 Serviços como Render e Railway têm filesystem efêmero: a cada deploy, tudo que
 foi enviado para o disco é perdido. Por isso o upload suporta **Cloudinary**.
 
-Defina `CLOUDINARY_URL` no ambiente e as imagens passam a ser enviadas para lá,
-com a URL definitiva gravada no banco:
-
-```ini
-CLOUDINARY_URL=cloudinary://<api_key>:<api_secret>@<cloud_name>
-```
-
-O valor está pronto no painel do Cloudinary, em *Settings → API Keys*.
+Com `CLOUDINARY_URL` definida, as imagens vão para lá e a URL definitiva é
+gravada no banco. O valor está pronto no painel, em *Settings → API Keys*.
 
 **Sem essa variável nada muda**: o upload continua gravando em `api/uploads/`,
 que é o comportamento usado em desenvolvimento.
