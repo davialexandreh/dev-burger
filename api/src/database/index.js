@@ -25,7 +25,14 @@ class Database {
   }
 
   mongo() {
-    this.mongoConnection = mongoose.connect(process.env.MONGO_URL);
+    // Sem o catch, uma credencial errada vira unhandled rejection e derruba a
+    // API inteira — inclusive catalogo e login, que nao dependem do Mongo.
+    // Apenas as rotas de pedidos ficam indisponiveis.
+    this.mongoConnection = mongoose
+      .connect(process.env.MONGO_URL)
+      .catch((err) => {
+        console.error('Falha ao conectar no MongoDB:', err.message);
+      });
   }
 }
 
