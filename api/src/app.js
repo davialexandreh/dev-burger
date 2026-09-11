@@ -14,9 +14,18 @@ class App {
 
     const origins = process.env.CORS_ORIGIN;
 
+    // O header Origin nunca traz barra final; normalizamos para que
+    // "https://site.app/" e "https://site.app" sejam equivalentes.
+    const permitidas = origins
+      ? origins
+          .split(',')
+          .map((o) => o.trim().replace(/\/+$/, ''))
+          .filter(Boolean)
+      : null;
+
     this.app.use(
       cors({
-        origin: origins ? origins.split(',').map((o) => o.trim()) : '*',
+        origin: permitidas || '*',
       }),
     );
 
